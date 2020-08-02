@@ -177,7 +177,6 @@ def _create_fns(query_name, docs, op_type, sql, driver_adapter):
             return driver_adapter.insert_update_delete_many(conn, query_name, sql, *parameters)
     elif op_type == SQLOperationType.SCRIPT:
         def fn(conn, *args, **kwargs):
-            parameters = kwargs if len(kwargs) > 0 else args
             return driver_adapter.execute_script(conn, sql)
     elif op_type == SQLOperationType.SELECT_ONE_ROW:
         def fn(conn, *args, **kwargs):
@@ -189,7 +188,7 @@ def _create_fns(query_name, docs, op_type, sql, driver_adapter):
             parameters = kwargs if len(kwargs) > 0 else args
             return driver_adapter.select(conn, query_name, sql, parameters)
     else:
-            raise ValueError("Unknown op_type: {}".format(op_type))
+        raise ValueError("Unknown op_type: {}".format(op_type))
 
     fn.__name__ = query_name
     fn.__doc__ = docs
