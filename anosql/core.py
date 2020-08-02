@@ -163,42 +163,52 @@ class Queries:
 
 
 def _create_fns(query_name, docs, op_type, sql, driver_adapter):
-    def fn(conn, *args, **kwargs):
-        parameters = kwargs if len(kwargs) > 0 else args
-        if op_type == SQLOperationType.INSERT_RETURNING:
+    if op_type == SQLOperationType.INSERT_RETURNING:
+        def fn(conn, *args, **kwargs):
+            parameters = kwargs if len(kwargs) > 0 else args
             return driver_adapter.insert_returning(conn, query_name, sql, parameters)
-        elif op_type == SQLOperationType.INSERT_UPDATE_DELETE:
+    elif op_type == SQLOperationType.INSERT_UPDATE_DELETE:
+        def fn(conn, *args, **kwargs):
+            parameters = kwargs if len(kwargs) > 0 else args
             return driver_adapter.insert_update_delete(conn, query_name, sql, parameters)
-        elif op_type == SQLOperationType.INSERT_UPDATE_DELETE_MANY:
+    elif op_type == SQLOperationType.INSERT_UPDATE_DELETE_MANY:
+        def fn(conn, *args, **kwargs):
+            parameters = kwargs if len(kwargs) > 0 else args
             return driver_adapter.insert_update_delete_many(conn, query_name, sql, *parameters)
-        elif op_type == SQLOperationType.SCRIPT:
+    elif op_type == SQLOperationType.SCRIPT:
+        def fn(conn, *args, **kwargs):
+            parameters = kwargs if len(kwargs) > 0 else args
             return driver_adapter.execute_script(conn, sql)
-        elif op_type == SQLOperationType.SELECT_ONE_ROW:
+    elif op_type == SQLOperationType.SELECT_ONE_ROW:
+        def fn(conn, *args, **kwargs):
+            parameters = kwargs if len(kwargs) > 0 else args
             res = driver_adapter.select(conn, query_name, sql, parameters)
             return res[0] if len(res) == 1 else None
-        elif op_type == SQLOperationType.SELECT:
+    elif op_type == SQLOperationType.SELECT:
+        def fn(conn, *args, **kwargs):
+            parameters = kwargs if len(kwargs) > 0 else args
             return driver_adapter.select(conn, query_name, sql, parameters)
-        else:
+    else:
             raise ValueError("Unknown op_type: {}".format(op_type))
 
     fn.__name__ = query_name
     fn.__doc__ = docs
     fn.sql = sql
 
-    ctx_mgr_method_name = "{}_cursor".format(query_name)
-
-    def ctx_mgr(conn, *args, **kwargs):
-        parameters = kwargs if len(kwargs) > 0 else args
-        return driver_adapter.select_cursor(conn, query_name, sql, parameters)
-
-    ctx_mgr.__name__ = ctx_mgr_method_name
-    ctx_mgr.__doc__ = docs
-    ctx_mgr.sql = sql
-
     if op_type == SQLOperationType.SELECT:
-        return [(query_name, fn), (ctx_mgr_method_name, ctx_mgr)]
+        def ctx_mgr(conn, *args, **kwargs):
+            parameters = kwargs if len(kwargs) > 0 else args
+            return driver_adapter.select_cursor(conn, query_name, sql, parameters)
 
-    return [(query_name, fn)]
+        ctx_mgr_method_name = "{}_cursor".format(query_name)
+
+        ctx_mgr.__name__ = ctx_mgr_method_name
+        ctx_mgr.__doc__ = docs
+        ctx_mgr.sql = sql
+
+        return [(query_name, fn), (ctx_mgr_method_name, ctx_mgr)]
+    else:
+        return [(query_name, fn)]
 
 
 def load_methods(sql_text, driver_adapter):
